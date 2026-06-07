@@ -1,0 +1,1320 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Asset Scanner Pro</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#C8102E">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Asset Scanner">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600;700&family=IBM+Plex+Sans+Thai:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js"></script>
+<style>
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  :root {
+    --cimb-red: #C8102E;
+    --cimb-red-dark: #8B0A1F;
+    --cimb-red-light: #ff3355;
+    --bg-dark: #0A0A0A;
+    --bg-surface: #111111;
+    --bg-surface-2: #1A1A1A;
+    --border-color: #2A2A2A;
+    --text-primary: #F0F0F0;
+    --text-muted: #888888;
+    --success: #22c55e;
+    --warning: #f59e0b;
+  }
+
+  body {
+    font-family: 'IBM Plex Sans Thai', sans-serif;
+    background: var(--bg-dark);
+    color: var(--text-primary);
+    min-height: 100vh;
+  }
+
+  /* Header */
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 24px;
+    background: var(--bg-surface);
+    border-bottom: 1px solid var(--border-color);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .logo-bar {
+    width: 4px;
+    height: 32px;
+    background: var(--cimb-red);
+    border-radius: 2px;
+  }
+
+  .logo-text {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+  }
+
+  .logo-sub {
+    font-size: 10px;
+    color: var(--text-muted);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .stats-header {
+    display: flex;
+    gap: 20px;
+  }
+
+  .stat-badge {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+
+  .stat-badge span {
+    color: var(--cimb-red-light);
+    font-weight: 700;
+    font-size: 18px;
+  }
+
+  /* Container */
+  .container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 24px;
+  }
+
+  /* Grid */
+  .grid-2col {
+    display: grid;
+    grid-template-columns: 400px 1fr;
+    gap: 24px;
+  }
+
+  @media (max-width: 900px) {
+    .grid-2col {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  /* Cards */
+  .card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    overflow: hidden;
+    margin-bottom: 24px;
+  }
+
+  .card-header {
+    padding: 14px 20px;
+    background: var(--bg-surface-2);
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+
+  .status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--text-muted);
+  }
+
+  .status-dot.active {
+    background: var(--success);
+    animation: pulse 1.5s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  /* Scanner */
+  .scanner-container {
+    padding: 20px;
+  }
+
+  #reader {
+    width: 100%;
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  #reader__dashboard_section_csr span {
+    color: var(--text-primary) !important;
+    background: var(--bg-surface-2) !important;
+  }
+
+  .scanner-placeholder {
+    width: 100%;
+    aspect-ratio: 4/3;
+    background: var(--bg-surface-2);
+    border-radius: 12px;
+    border: 2px dashed var(--border-color);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    color: var(--text-muted);
+  }
+
+  .btn-group {
+    display: flex;
+    gap: 12px;
+    margin-top: 16px;
+  }
+
+  /* Buttons */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px 20px;
+    border-radius: 10px;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: none;
+  }
+
+  .btn-primary {
+    background: var(--cimb-red);
+    color: white;
+  }
+
+  .btn-primary:hover {
+    background: var(--cimb-red-light);
+    transform: translateY(-1px);
+  }
+
+  .btn-outline {
+    background: transparent;
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+  }
+
+  .btn-outline:hover {
+    border-color: var(--cimb-red);
+    color: var(--cimb-red-light);
+  }
+
+  .btn-ghost {
+    background: transparent;
+    color: var(--text-muted);
+    border: 1px solid transparent;
+    padding: 6px 12px;
+    font-size: 11px;
+  }
+
+  .btn-ghost:hover {
+    color: var(--cimb-red-light);
+    background: rgba(200, 16, 46, 0.1);
+  }
+
+  .btn-danger {
+    background: transparent;
+    color: var(--cimb-red-light);
+    border: 1px solid var(--cimb-red);
+  }
+
+  .btn-danger:hover {
+    background: rgba(200, 16, 46, 0.15);
+  }
+
+  /* Form */
+  .form-section {
+    padding: 20px;
+  }
+
+  .form-group {
+    margin-bottom: 16px;
+  }
+
+  label {
+    display: block;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+  }
+
+  input, select, textarea {
+    width: 100%;
+    padding: 10px 14px;
+    background: var(--bg-surface-2);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    color: var(--text-primary);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    outline: none;
+    transition: all 0.2s;
+  }
+
+  input:focus, select:focus, textarea:focus {
+    border-color: var(--cimb-red);
+    box-shadow: 0 0 0 3px rgba(200, 16, 46, 0.15);
+  }
+
+  input.scanned {
+    border-color: var(--success);
+    animation: scanFlash 0.5s ease;
+  }
+
+  @keyframes scanFlash {
+    0%, 100% { background: var(--bg-surface-2); }
+    50% { background: rgba(34, 197, 94, 0.1); }
+  }
+
+  /* Toast */
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(100px);
+    background: #1a1a1a;
+    border: 1px solid var(--border-color);
+    border-radius: 40px;
+    padding: 12px 24px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 13px;
+    font-weight: 500;
+    z-index: 1000;
+    transition: transform 0.3s ease;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+  }
+
+  .toast.show {
+    transform: translateX(-50%) translateY(0);
+  }
+
+  .toast.success {
+    border-left: 3px solid var(--success);
+  }
+
+  .toast.error {
+    border-left: 3px solid var(--cimb-red);
+  }
+
+  /* Stats Bar */
+  .stats-bar {
+    display: flex;
+    border-bottom: 1px solid var(--border-color);
+  }
+
+  .stat-item {
+    flex: 1;
+    padding: 14px 20px;
+    border-right: 1px solid var(--border-color);
+  }
+
+  .stat-item:last-child {
+    border-right: none;
+  }
+
+  .stat-value {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 24px;
+    font-weight: 700;
+  }
+
+  .stat-value.red {
+    color: var(--cimb-red-light);
+  }
+
+  .stat-label {
+    font-size: 10px;
+    color: var(--text-muted);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-top: 4px;
+  }
+
+  /* Table */
+  .table-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 20px;
+    background: var(--bg-surface-2);
+    border-bottom: 1px solid var(--border-color);
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .table-title {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+
+  .action-buttons {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .table-wrapper {
+    overflow-x: auto;
+    max-height: 500px;
+    overflow-y: auto;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+  }
+
+  thead th {
+    padding: 12px 16px;
+    text-align: left;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    background: var(--bg-surface-2);
+    border-bottom: 1px solid var(--border-color);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+
+  tbody tr {
+    border-bottom: 1px solid var(--border-color);
+    transition: background 0.15s;
+  }
+
+  tbody tr:hover {
+    background: rgba(255, 255, 255, 0.03);
+  }
+
+  tbody tr.new {
+    animation: rowHighlight 0.5s ease;
+  }
+
+  @keyframes rowHighlight {
+    from { background: rgba(200, 16, 46, 0.2); }
+    to { background: transparent; }
+  }
+
+  tbody td {
+    padding: 10px 16px;
+    white-space: nowrap;
+  }
+
+  .barcode-cell {
+    font-family: 'IBM Plex Mono', monospace;
+    font-weight: 600;
+    color: var(--cimb-red-light);
+  }
+
+  .type-tag {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-size: 10px;
+    font-weight: 700;
+    background: rgba(200, 16, 46, 0.15);
+    color: var(--cimb-red-light);
+    border: 1px solid rgba(200, 16, 46, 0.3);
+  }
+
+  .delete-btn {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-size: 14px;
+    transition: all 0.15s;
+  }
+
+  .delete-btn:hover {
+    color: var(--cimb-red-light);
+    background: rgba(200, 16, 46, 0.1);
+  }
+
+  .empty-state {
+    padding: 60px 20px;
+    text-align: center;
+    color: var(--text-muted);
+  }
+
+  .empty-state svg {
+    opacity: 0.3;
+    margin-bottom: 12px;
+  }
+
+  /* Filter bar */
+  .filter-bar {
+    padding: 12px 20px;
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    align-items: center;
+    background: var(--bg-surface-2);
+    border-bottom: 1px solid var(--border-color);
+  }
+
+  .filter-bar input {
+    flex: 1;
+    min-width: 150px;
+    padding: 8px 12px;
+    font-size: 12px;
+  }
+
+  .filter-bar select {
+    width: auto;
+    min-width: 120px;
+    padding: 8px 12px;
+    font-size: 12px;
+  }
+
+  /* Modal */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    z-index: 2000;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .modal-overlay.show {
+    display: flex;
+  }
+
+  .modal-content {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    width: 90%;
+    max-width: 500px;
+    max-height: 90vh;
+    overflow-y: auto;
+    animation: slideUp 0.3s ease;
+  }
+
+  @keyframes slideUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .modal-header {
+    padding: 20px;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .modal-title {
+    font-size: 16px;
+    font-weight: 600;
+  }
+
+  .modal-close {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 20px;
+    padding: 0;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .modal-close:hover {
+    color: var(--cimb-red-light);
+  }
+
+  .modal-body {
+    padding: 20px;
+  }
+
+  .modal-footer {
+    padding: 16px 20px;
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+  }
+
+  /* Sortable header */
+  thead th {
+    cursor: pointer;
+    user-select: none;
+  }
+
+  thead th:hover {
+    background: rgba(200, 16, 46, 0.1);
+  }
+
+  .sort-indicator {
+    display: inline-block;
+    margin-left: 6px;
+    font-size: 10px;
+  }
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div class="logo">
+    <div class="logo-bar"></div>
+    <div>
+      <div class="logo-text">ASSET SCANNER PRO</div>
+      <div class="logo-sub">IT Asset Management System</div>
+    </div>
+  </div>
+  <div class="stats-header">
+    <div class="stat-badge">📦 <span id="total-count">0</span> รายการ</div>
+  </div>
+</header>
+
+<div class="container">
+  <div class="grid-2col">
+    <!-- Left Column -->
+    <div>
+      <!-- Scanner Card -->
+      <div class="card">
+        <div class="card-header">
+          <div class="status-dot" id="scanner-status-dot"></div>
+          <span id="scanner-status-text">พร้อมสแกน</span>
+        </div>
+        <div class="scanner-container">
+          <div id="reader"></div>
+          <div id="scanner-placeholder" class="scanner-placeholder">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M3 7V5a2 2 0 012-2h2M17 3h2a2 2 0 012 2v2M21 17v2a2 2 0 01-2 2h-2M7 21H5a2 2 0 01-2-2v-2"/>
+              <line x1="7" y1="12" x2="7" y2="12.01"/><line x1="10" y1="12" x2="10" y2="12.01"/>
+              <line x1="13" y1="12" x2="13" y2="12.01"/><line x1="16" y1="12" x2="16" y2="12.01"/>
+            </svg>
+            <span>กดปุ่มเริ่มสแกนด้านล่าง</span>
+          </div>
+          <div class="btn-group">
+            <button class="btn btn-primary" id="start-scan-btn" onclick="startScanner()">
+              📷 เริ่มสแกน
+            </button>
+            <button class="btn btn-outline" id="stop-scan-btn" onclick="stopScanner()" style="display: none;">
+              ⏹️ หยุดสแกน
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Form Card -->
+      <div class="card">
+        <div class="card-header">
+          <div class="status-dot"></div>
+          <span>กรอกข้อมูลครุภัณฑ์</span>
+        </div>
+        <div class="form-section">
+          <div class="form-group">
+            <label>🔖 รหัสบาร์โค้ด / Serial Number</label>
+            <input type="text" id="input-barcode" placeholder="PR23211601/0062" autocomplete="off">
+          </div>
+          <div class="form-group">
+            <label>💻 ชื่ออุปกรณ์</label>
+            <input type="text" id="input-name" placeholder="Notebook Dell Latitude 3440">
+          </div>
+          <div class="form-group">
+            <label>🏢 Computer Name</label>
+            <input type="text" id="input-branch" placeholder="26VPDX3">
+          </div>
+          <div class="form-group">
+            <label>📂 ประเภทอุปกรณ์</label>
+            <select id="input-type">
+              <option value="">-- เลือกประเภท --</option>
+              <option>🖥️ Notebook</option>
+              <option>🖥️ Desktop</option>
+              <option>🖥️ Monitor</option>
+              <option>🖨️ Printer</option>
+              <option>🗄️ Server</option>
+              <option>🌐 Network</option>
+              <option>📱 Tablet</option>
+              <option>📞 โทรศัพท์</option>
+              <option>🔌 Other</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>📝 หมายเหตุ</label>
+            <input type="text" id="input-note" placeholder="เพิ่มเติม...">
+          </div>
+          <button class="btn btn-primary" style="width: 100%;" onclick="addRecord()">
+            ➕ บันทึกรายการ
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right Column - Records Table -->
+    <div class="card">
+      <div class="stats-bar">
+        <div class="stat-item">
+          <div class="stat-value red" id="stat-total">0</div>
+          <div class="stat-label">รายการทั้งหมด</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-value" id="stat-today">0</div>
+          <div class="stat-label">สแกนวันนี้</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-value" id="stat-types">0</div>
+          <div class="stat-label">ประเภท</div>
+        </div>
+      </div>
+      
+      <div class="filter-bar">
+        <input type="text" id="search-input" placeholder="🔍 ค้นหา บาร์โค้ด/ชื่อ/สาขา..." onkeyup="filterRecords()">
+        <select id="type-filter" onchange="filterRecords()">
+          <option value="">ทั้งหมด</option>
+          <option>Notebook</option>
+          <option>Desktop</option>
+          <option>Monitor</option>
+          <option>Printer</option>
+          <option>Server</option>
+          <option>Network</option>
+          <option>Tablet</option>
+          <option>โทรศัพท์</option>
+          <option>Other</option>
+        </select>
+      </div>
+
+      <div class="table-actions">
+        <div class="table-title">📋 ประวัติการสแกน</div>
+        <div class="action-buttons">
+          <button class="btn btn-ghost" id="backup-status" style="opacity: 0.7; cursor: default;">💾 Local Only</button>
+          <button class="btn btn-ghost" onclick="exportCSV()">📄 CSV</button>
+          <button class="btn btn-primary" onclick="exportExcel()">📊 Excel</button>
+          <button class="btn btn-danger" onclick="clearAll()">🗑️ Clear</button>
+        </div>
+      </div>
+      
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th onclick="sortBy('barcode')" style="cursor: pointer;">บาร์โค้ด</th>
+              <th onclick="sortBy('name')" style="cursor: pointer;">ชื่ออุปกรณ์</th>
+              <th onclick="sortBy('branch')" style="cursor: pointer;">สาขา</th>
+              <th onclick="sortBy('type')" style="cursor: pointer;">ประเภท</th>
+              <th onclick="sortBy('time')" style="cursor: pointer;">เวลา</th>
+              <th>หมายเหตุ</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="table-body"></tbody>
+        </table>
+        <div id="empty-state" class="empty-state">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <rect x="3" y="3" width="18" height="18" rx="2"/>
+            <path d="M7 7h.01M7 12h.01M7 17h.01M12 7h.01M12 12h.01M12 17h.01M17 7h.01M17 12h.01M17 17h.01"/>
+          </svg>
+          <p>ยังไม่มีรายการ</p>
+          <p style="font-size: 11px; margin-top: 4px;">สแกนบาร์โค้ดหรือกรอกข้อมูลเพื่อเริ่มต้น</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<!-- Edit Modal -->
+<div id="editModal" class="modal-overlay">
+  <div class="modal-content">
+    <div class="modal-header">
+      <div class="modal-title">✏️ แก้ไขรายการ</div>
+      <button class="modal-close" onclick="closeEditModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>🔖 รหัสบาร์โค้ด</label>
+        <input type="text" id="edit-barcode" readonly>
+      </div>
+      <div class="form-group">
+        <label>💻 ชื่ออุปกรณ์</label>
+        <input type="text" id="edit-name">
+      </div>
+      <div class="form-group">
+        <label>🏢 รหัสสาขา</label>
+        <input type="text" id="edit-branch">
+      </div>
+      <div class="form-group">
+        <label>📂 ประเภทอุปกรณ์</label>
+        <select id="edit-type">
+          <option value="">-- เลือกประเภท --</option>
+          <option>🖥️ Notebook</option>
+          <option>🖥️ Desktop</option>
+          <option>🖥️ Monitor</option>
+          <option>🖨️ Printer</option>
+          <option>🗄️ Server</option>
+          <option>🌐 Network</option>
+          <option>📱 Tablet</option>
+          <option>📞 โทรศัพท์</option>
+          <option>🔌 Other</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>📝 หมายเหตุ</label>
+        <input type="text" id="edit-note">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeEditModal()">ยกเลิก</button>
+      <button class="btn btn-primary" onclick="updateRecord()">💾 บันทึกการแก้ไข</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============== DATA MANAGEMENT ==============
+let records = [];
+let html5QrcodeScanner = null;
+let isScanning = false;
+let editingRecordId = null;
+let sortColumn = 'timestamp';
+let sortDirection = 'desc'; // 'asc' or 'desc'
+
+// Load from localStorage
+function loadData() {
+  const saved = localStorage.getItem('asset_records_pro');
+  if (saved) {
+    try {
+      records = JSON.parse(saved);
+    } catch(e) { records = []; }
+  }
+  renderTable();
+}
+
+function saveData() {
+  localStorage.setItem('asset_records_pro', JSON.stringify(records));
+  updateStats();
+}
+
+function getNow() {
+  const now = new Date();
+  return now.toLocaleString('th-TH', { hour12: false });
+}
+
+function getToday() {
+  return new Date().toLocaleDateString('th-TH');
+}
+
+function showToast(message, type = 'success') {
+  const toast = document.getElementById('toast');
+  toast.innerHTML = type === 'success' ? `✅ ${message}` : `❌ ${message}`;
+  toast.className = `toast show ${type}`;
+  setTimeout(() => {
+    toast.classList.remove('show');
+  }, 2500);
+}
+
+function playBeep() {
+  try {
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const oscillator = audioCtx.createOscillator();
+    const gainNode = audioCtx.createGain();
+    oscillator.connect(gainNode);
+    gainNode.connect(audioCtx.destination);
+    oscillator.frequency.value = 880;
+    gainNode.gain.value = 0.2;
+    oscillator.start();
+    gainNode.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + 0.3);
+    oscillator.stop(audioCtx.currentTime + 0.3);
+  } catch(e) { console.log('beep not supported'); }
+}
+
+// ============== SCANNER ==============
+window.startScanner = function() {
+  const readerDiv = document.getElementById('reader');
+  const placeholder = document.getElementById('scanner-placeholder');
+  
+  if (html5QrcodeScanner) {
+    html5QrcodeScanner.clear().then(() => {
+      html5QrcodeScanner = null;
+      startNewScanner();
+    }).catch(() => startNewScanner());
+  } else {
+    startNewScanner();
+  }
+  
+  function startNewScanner() {
+    readerDiv.style.display = 'block';
+    placeholder.style.display = 'none';
+    document.getElementById('start-scan-btn').style.display = 'none';
+    document.getElementById('stop-scan-btn').style.display = '';
+    document.getElementById('scanner-status-dot').classList.add('active');
+    document.getElementById('scanner-status-text').textContent = 'กำลังสแกน...';
+    
+    html5QrcodeScanner = new Html5Qrcode("reader");
+    const config = { fps: 10, qrbox: { width: 250, height: 100 } };
+    
+    html5QrcodeScanner.start(
+      { deviceId: { exact: null } },
+      config,
+      (decodedText) => {
+        // Scan success
+        playBeep();
+        document.getElementById('input-barcode').value = decodedText;
+        document.getElementById('input-barcode').classList.add('scanned');
+        setTimeout(() => {
+          document.getElementById('input-barcode').classList.remove('scanned');
+        }, 500);
+        showToast(`สแกนสำเร็จ: ${decodedText}`, 'success');
+        stopScanner();
+        // Auto focus to name field
+        document.getElementById('input-name').focus();
+      },
+      (error) => {
+        // Silent fail - no barcode detected
+      }
+    ).catch(err => {
+      console.error('Scanner error:', err);
+      showToast('ไม่สามารถเปิดกล้องได้ กรุณาตรวจสอบสิทธิ์', 'error');
+      stopScanner();
+    });
+  }
+};
+
+window.stopScanner = function() {
+  if (html5QrcodeScanner) {
+    html5QrcodeScanner.stop().then(() => {
+      html5QrcodeScanner.clear();
+      html5QrcodeScanner = null;
+    }).catch(() => {});
+  }
+  document.getElementById('reader').style.display = 'none';
+  document.getElementById('scanner-placeholder').style.display = 'flex';
+  document.getElementById('start-scan-btn').style.display = '';
+  document.getElementById('stop-scan-btn').style.display = 'none';
+  document.getElementById('scanner-status-dot').classList.remove('active');
+  document.getElementById('scanner-status-text').textContent = 'พร้อมสแกน';
+  isScanning = false;
+};
+
+// ============== CRUD OPERATIONS ==============
+window.addRecord = function() {
+  const barcode = document.getElementById('input-barcode').value.trim();
+  if (!barcode) {
+    showToast('กรุณากรอกรหัสบาร์โค้ด', 'error');
+    return;
+  }
+  
+  // Check for duplicate barcode
+  if (records.some(r => r.barcode.toLowerCase() === barcode.toLowerCase())) {
+    showToast(`⚠️ บาร์โค้ด ${barcode} มีอยู่แล้ว`, 'error');
+    return;
+  }
+  
+  const newRecord = {
+    id: Date.now(),
+    barcode: barcode,
+    name: document.getElementById('input-name').value.trim() || '-',
+    branch: document.getElementById('input-branch').value.trim() || '-',
+    type: document.getElementById('input-type').value || 'ไม่ระบุ',
+    note: document.getElementById('input-note').value.trim() || '',
+    time: getNow(),
+    date: getToday(),
+    timestamp: Date.now()
+  };
+  
+  records.unshift(newRecord);
+  saveData();
+  renderTable();
+  
+  // Clear form but keep barcode for next scan
+  document.getElementById('input-name').value = '';
+  document.getElementById('input-branch').value = '';
+  document.getElementById('input-type').value = '';
+  document.getElementById('input-note').value = '';
+  document.getElementById('input-barcode').value = '';
+  document.getElementById('input-barcode').focus();
+  
+  showToast(`บันทึก ${barcode} เรียบร้อย`, 'success');
+};
+
+window.editRecord = function(id) {
+  const record = records.find(r => r.id === id);
+  if (!record) return;
+  
+  editingRecordId = id;
+  document.getElementById('edit-barcode').value = record.barcode;
+  document.getElementById('edit-name').value = record.name === '-' ? '' : record.name;
+  document.getElementById('edit-branch').value = record.branch === '-' ? '' : record.branch;
+  document.getElementById('edit-type').value = record.type;
+  document.getElementById('edit-note').value = record.note || '';
+  
+  document.getElementById('editModal').classList.add('show');
+};
+
+window.updateRecord = function() {
+  if (!editingRecordId) return;
+  
+  const record = records.find(r => r.id === editingRecordId);
+  if (!record) return;
+  
+  record.name = document.getElementById('edit-name').value.trim() || '-';
+  record.branch = document.getElementById('edit-branch').value.trim() || '-';
+  record.type = document.getElementById('edit-type').value || 'ไม่ระบุ';
+  record.note = document.getElementById('edit-note').value.trim() || '';
+  
+  saveData();
+  renderTable();
+  closeEditModal();
+  showToast('แก้ไขรายการสำเร็จ', 'success');
+};
+
+window.closeEditModal = function() {
+  document.getElementById('editModal').classList.remove('show');
+  editingRecordId = null;
+};
+
+window.deleteRecord = function(id) {
+  if (confirm('ต้องการลบรายการนี้ใช่หรือไม่?')) {
+    records = records.filter(r => r.id !== id);
+    saveData();
+    renderTable();
+    showToast('ลบรายการสำเร็จ', 'success');
+  }
+};
+
+window.clearAll = function() {
+  if (records.length === 0) return;
+  if (confirm(`⚠️ ลบข้อมูลทั้งหมด ${records.length} รายการ?\nการดำเนินการนี้ไม่สามารถกู้คืนได้`)) {
+    records = [];
+    saveData();
+    renderTable();
+    showToast('ล้างข้อมูลทั้งหมดเรียบร้อย', 'success');
+  }
+};
+
+// ============== FILTER & SORT ==============
+let currentFilter = '';
+let currentTypeFilter = '';
+
+window.filterRecords = function() {
+  currentFilter = document.getElementById('search-input').value.toLowerCase();
+  currentTypeFilter = document.getElementById('type-filter').value;
+  renderTable();
+};
+
+window.sortBy = function(column) {
+  if (sortColumn === column) {
+    sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+  } else {
+    sortColumn = column;
+    sortDirection = 'desc';
+  }
+  renderTable();
+};
+
+function getFilteredRecords() {
+  let filtered = [...records];
+  if (currentFilter) {
+    filtered = filtered.filter(r => 
+      r.barcode.toLowerCase().includes(currentFilter) ||
+      r.name.toLowerCase().includes(currentFilter) ||
+      r.branch.toLowerCase().includes(currentFilter)
+    );
+  }
+  if (currentTypeFilter) {
+    filtered = filtered.filter(r => r.type === currentTypeFilter);
+  }
+  
+  // Sort
+  filtered.sort((a, b) => {
+    let aVal = a[sortColumn];
+    let bVal = b[sortColumn];
+    
+    if (typeof aVal === 'string') {
+      aVal = aVal.toLowerCase();
+      bVal = bVal.toLowerCase();
+      return sortDirection === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+    } else {
+      return sortDirection === 'asc' ? aVal - bVal : bVal - aVal;
+    }
+  });
+  
+  return filtered;
+}
+
+// ============== RENDER TABLE ==============
+function renderTable() {
+  const filtered = getFilteredRecords();
+  const tbody = document.getElementById('table-body');
+  const emptyDiv = document.getElementById('empty-state');
+  
+  if (filtered.length === 0) {
+    tbody.innerHTML = '';
+    emptyDiv.style.display = 'block';
+    updateStats();
+    return;
+  }
+  
+  emptyDiv.style.display = 'none';
+  tbody.innerHTML = '';
+  
+  filtered.forEach((record, idx) => {
+    const row = tbody.insertRow();
+    row.className = idx < 3 && record.timestamp > Date.now() - 30000 ? 'new' : '';
+    
+    row.innerHTML = `
+      <td>${idx + 1}</td>
+      <td class="barcode-cell">${escapeHtml(record.barcode)}</td>
+      <td>${escapeHtml(record.name)}</td>
+      <td>${escapeHtml(record.branch)}</td>
+      <td><span class="type-tag">${escapeHtml(record.type)}</span></td>
+      <td style="font-size: 11px; color: var(--text-muted);">${record.time}</td>
+      <td style="max-width: 150px; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(record.note) || '-'}</td>
+      <td style="display: flex; gap: 4px;">
+        <button class="delete-btn" onclick="editRecord(${record.id})" title="แก้ไข">✎</button>
+        <button class="delete-btn" onclick="deleteRecord(${record.id})" title="ลบ">✕</button>
+      </td>
+    `;
+  });
+  
+  // Update sort indicators
+  document.querySelectorAll('thead th').forEach(th => {
+    const text = th.textContent.replace(/\s*[▲▼]\s*$/, '');
+    th.textContent = text;
+  });
+  
+  const headerMap = {
+    'timestamp': 0,
+    'barcode': 1,
+    'name': 2,
+    'branch': 3,
+    'type': 4,
+    'time': 5
+  };
+  
+  const headerIdx = headerMap[sortColumn];
+  if (headerIdx !== undefined) {
+    const headers = document.querySelectorAll('thead th');
+    if (headers[headerIdx]) {
+      const indicator = sortDirection === 'asc' ? ' ▲' : ' ▼';
+      headers[headerIdx].textContent += indicator;
+    }
+  }
+  
+  updateStats();
+}
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return str.replace(/[&<>]/g, function(m) {
+    if (m === '&') return '&amp;';
+    if (m === '<') return '&lt;';
+    if (m === '>') return '&gt;';
+    return m;
+  });
+}
+
+function updateStats() {
+  const total = records.length;
+  const today = records.filter(r => r.date === getToday()).length;
+  const types = new Set(records.map(r => r.type).filter(Boolean)).size;
+  
+  document.getElementById('stat-total').textContent = total;
+  document.getElementById('stat-today').textContent = today;
+  document.getElementById('stat-types').textContent = types;
+  document.getElementById('total-count').textContent = total;
+}
+
+// ============== EXPORT ==============
+window.exportCSV = function() {
+  if (records.length === 0) {
+    showToast('ไม่มีข้อมูลสำหรับ Export', 'error');
+    return;
+  }
+  
+  const headers = ['ลำดับ', 'รหัสบาร์โค้ด', 'ชื่ออุปกรณ์', 'รหัสสาขา', 'ประเภท', 'หมายเหตุ', 'วันที่', 'เวลา'];
+  const rows = records.map((r, i) => [
+    i + 1, r.barcode, r.name, r.branch, r.type, r.note, r.date, r.time
+  ]);
+  
+  const csvContent = [headers, ...rows].map(row => 
+    row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')
+  ).join('\n');
+  
+  const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  const url = URL.createObjectURL(blob);
+  link.href = url;
+  link.setAttribute('download', `CIMB_Assets_${new Date().toISOString().slice(0,10)}.csv`);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+  showToast('ส่งออก CSV สำเร็จ', 'success');
+};
+
+window.exportExcel = function() {
+  if (records.length === 0) {
+    showToast('ไม่มีข้อมูลสำหรับ Export', 'error');
+    return;
+  }
+  
+  const wsData = [
+    ['CIMB Thai - Asset Management Report'],
+    ['วันที่ส่งออก', getNow()],
+    [''],
+    ['#', 'รหัสบาร์โค้ด', 'ชื่ออุปกรณ์', 'รหัสสาขา', 'ประเภท', 'หมายเหตุ', 'วันที่', 'เวลา']
+  ];
+  
+  records.forEach((r, i) => {
+    wsData.push([i + 1, r.barcode, r.name, r.branch, r.type, r.note, r.date, r.time]);
+  });
+  
+  wsData.push([''], ['สรุปตามประเภท'], ['ประเภท', 'จำนวน']);
+  const typeCount = {};
+  records.forEach(r => {
+    const t = r.type || 'ไม่ระบุ';
+    typeCount[t] = (typeCount[t] || 0) + 1;
+  });
+  Object.entries(typeCount).forEach(([type, count]) => {
+    wsData.push([type, count]);
+  });
+  wsData.push(['รวมทั้งหมด', records.length]);
+  
+  const ws = XLSX.utils.aoa_to_sheet(wsData);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Asset Records');
+  XLSX.writeFile(wb, `CIMB_Assets_${new Date().toISOString().slice(0,10)}.xlsx`);
+  showToast('ส่งออก Excel สำเร็จ', 'success');
+};
+
+// ============== INIT ==============
+// Enter key support
+document.getElementById('input-barcode').addEventListener('keypress', (e) => {
+  if (e.key === 'Enter') addRecord();
+});
+document.getElementById('input-name').addEventListener('keypress', (e) => {
+  if (e.key === 'Enter') addRecord();
+});
+
+// Focus barcode on load
+document.getElementById('input-barcode').focus();
+
+// Close modal on escape key
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    closeEditModal();
+  }
+});
+
+// Close modal when clicking outside
+document.getElementById('editModal').addEventListener('click', (e) => {
+  if (e.target.id === 'editModal') {
+    closeEditModal();
+  }
+});
+
+// Initial load
+loadData();
+
+// ============== FIREBASE CONFIG ==============
+let firebaseDb = null;
+let isCloudEnabled = false;
+
+const firebaseConfig = {
+  apiKey: '',
+  authDomain: '',
+  databaseURL: '',
+  projectId: '',
+  storageBucket: '',
+  messagingSenderId: '',
+  appId: ''
+};
+
+function initFirebase() {
+  if (!firebaseConfig.projectId) return;
+  try {
+    firebase.initializeApp(firebaseConfig);
+    firebaseDb = firebase.database();
+    isCloudEnabled = true;
+    document.getElementById('backup-status').textContent = '☁️ Cloud Sync';
+    document.getElementById('backup-status').style.color = 'var(--success)';
+  } catch(e) { console.log('Firebase not configured'); }
+}
+
+function autoBackup() {
+  if (!isCloudEnabled || !firebaseDb) return;
+  try {
+    const timestamp = new Date().toISOString();
+    firebaseDb.ref('backups/' + timestamp).set({records: records, count: records.length});
+  } catch(e) { console.log('Backup failed'); }
+}
+
+setInterval(() => { autoBackup(); }, 5 * 60 * 1000);
+
+// Service Worker Registration
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('service-worker.js').catch(err => console.log('SW failed:', err));
+}
+
+initFirebase();
+</script>
+</body>
+</html>
